@@ -1,30 +1,56 @@
-import { Request, Response } from "express";
+import { Request, response, Response } from "express";
 import User from "../models/user";
+import { Op } from "sequelize";
 
 
-export const getUsers = async (req:Request, resp:Response) => {
+export const getAllUsers = async (req:Request, resp:Response) => {
 
-    const users = await User.findAll();
+    try {
+        const users = await User.findAll();
 
-    resp.json({
-        users
-    })
+        if(!users)
+            return resp.status(404).json({
+                msg: 'No se encontraron usuarios'
+            })
+
+        resp.status(200).json({
+            msg: 'consulta exitosa',
+            users
+        });
+
+    } catch (error) {
+        console.log('error :>> ', error);
+        resp.status(500).json({
+            msg: 'Error en el servidor, comunicarse con el administrador del sistema'
+        })
+    }
 
 }
 
 export const getUser = async (req:Request, resp:Response) => {
 
     const { id } = req.params;
-    const user = await User.findByPk(id);
 
-    if(!user){
-        resp.status(404).json({
-            msg: `No existe un usuario con el id ${ id }`
+    try {
+        const user = await User.findByPk(id);
+
+        if(!user){
+            return resp.status(404).json({
+                msg: `No existe un usuario con el id ${id}`
+            })
+        };
+
+        resp.status(200).json({
+            msg: `Usuario con el id ${id} encontrado`,
+            user
         })
-    } else {
 
-        resp.json(user);
-    };
+    } catch (error) {
+        console.log('error :>> ', error);
+        resp.status(500).json({
+            msg: 'Error en el servidor, comunicarse con el administrador del sistema'
+        })
+    }
 }
 
 export const postUser = async (req: Request, resp:Response) => {
@@ -43,14 +69,18 @@ export const postUser = async (req: Request, resp:Response) => {
                 msg: `Ya existe un usuario con el email ${body.email}`
             })
 
-        const usuario = User.build(body);
-        await usuario.save();
+        const user = User.build(body);
 
-        resp.json(usuario);
+        await user.save();
+
+        resp.status(200).json({
+            msg: `Usuario creado correctamente`,
+            user
+        })
 
     } catch (error) {
         resp.status(500).json({
-            msg: 'Erro en el servidor, comunicarse con el administrador del sistema'
+            msg: 'Error en el servidor, comunicarse con el administrador del sistema'
         })
     }
 }
@@ -66,13 +96,14 @@ export const putUser = async (req: Request, resp:Response) => {
 
         if(!user){
             return resp.status(404).json({
-                msg: `No existe un usuario con el id  ${id}`
+                msg: `No existe un usuario con el id ${id}`
             })
         };
 
         const existsEmail = await User.findOne({
             where: {
-                email: body.email
+                email: body.email,
+                id: {[Op.ne] : id}
             }
         });
 
@@ -83,21 +114,47 @@ export const putUser = async (req: Request, resp:Response) => {
 
         await user.update(body);
 
-        resp.json(user);
+        resp.status(200).json({
+            msg: `Usuario con el id ${id} actualizado correctamente`,
+            user
+        })
 
     } catch (error) {
         console.log('error :>> ', error);
         resp.status(500).json({
-            msg: 'Erro en el servidor, comunicarse con el administrador del sistemas'
+            msg: 'Error en el servidor, comunicarse con el administrador del sistemas'
         })
     }
 }
 
-export const deleteUser = (req: Request,resp:Response) => {
+export const deleteUser = async (req: Request,resp:Response) => {
     const { id } = req.params;
 
-    resp.json({
-        msg: 'deleteUsuario',
-        id
-    })
+    try {
+        const user = await User.findOne({
+            where: {
+                id: id,
+                state: true
+            }
+        });
+
+        if(!user)
+            return resp.status(500).json({
+                msg: `No se encontro un usuario con el id ${id}`
+            })
+
+        await user.update({
+            state: false
+        })
+
+        resp.status(200).json({
+            msg: `Usuario con el id ${id} desactivado correctamente`
+        })
+
+    } catch (error) {
+        console.log('error :>> ', error);
+        resp.status(500).json({
+            msg: 'Error en el servidor, comunicarse con el administrador del sistemas'
+        })
+    }
 }
